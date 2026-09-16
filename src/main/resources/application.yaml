@@ -1,0 +1,11 @@
+ktor:
+  deployment:
+    port: 8080
+  application:
+    modules:
+      - xyz.mrjimin.HttpKt.configureHttp
+      - xyz.mrjimin.SerializationKt.configureSerialization
+      - xyz.mrjimin.SecurityKt.configureSecurity
+      - xyz.mrjimin.RequestValidationKt.configureRequestValidation
+      - xyz.mrjimin.KoinKt.configureKoin
+      - xyz.mrjimin.RoutingKt.configureRouting
