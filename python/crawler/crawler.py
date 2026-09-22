@@ -1,98 +1,214 @@
-import json
+import hashlib
+import os
 import re
-from datetime import datetime
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from datetime import date
+
+import psycopg
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 
 BASE_URL = "https://school.jbedu.kr/woosuk/M010501/list.do"
 
-def crawl_and_standardize(year: int, month: int):
-    params = {"y": year, "m": month}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept-Language": "ko-KR,ko;q=0.9",
-    }
+load_dotenv()
 
+DB_CONFIG = {
+    "host": os.environ["DB_HOST"],
+    "port": os.environ.get("DB_PORT"),
+    "dbname": os.environ["DB_NAME"],
+    "user": os.environ["DB_USER"],
+    "password": os.environ["DB_PASSWORD"],
+}
+
+DATE_PATTERN = re.compile(
+    r"(\d{4}\.\d{2}\.\d{2}"
+    r"(?:\s*~\s*\d{4}\.\d{2}\.\d{2})?)"
+    r"\s*\n?-?\s*([^\n]+)"
+)
+
+EXCLUDED_KEYWORDS = {
+    "학사일정",
+    "교육활동",
+    "우석고등학교",
+    "메인메뉴",
+    "본문내용",
+    "퀵메뉴",
+}
+
+
+def create_session():
     session = requests.Session()
-    retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
-    session.mount("https://", HTTPAdapter(max_retries=retries))
 
-    try:
-        res = session.get(BASE_URL, params=params, headers=headers, timeout=15)
-        res.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(f"네트워크 오류 발생: {e}")
-        return None
-
-    soup = BeautifulSoup(res.text, "html.parser")
-    text = soup.get_text("\n", strip = True)
-
-    # 날짜와 일정 패턴 추출
-    pattern = re.compile(
-        r"(\d{4}\.\d{2}\.\d{2}(?:\s*~\s*\d{4}\.\d{2}\.\d{2})?)\s*\n?-?\s*([^\n]+)"
+    retry = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=(500, 502, 503, 504),
+        allowed_methods=("GET",),
     )
-    matches = pattern.findall(text)
 
-    exclude_keywords = {
-        "학사일정", "교육활동", "우석고등학교", "메인메뉴", "본문내용", "퀵메뉴"
-    }
+    session.mount(
+        "https://",
+        HTTPAdapter(max_retries=retry),
+    )
 
-    seen = set()
-    schedules = []
+    return session
 
-    for date_str, event_str in matches:
-        event = event_str.strip()
-        if any(kw in event for kw in exclude_keywords):
+
+def crawl(year, month, session):
+    response = session.get(
+        BASE_URL,
+        params={"y": year, "m": month},
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+
+    text = BeautifulSoup(
+        response.text,
+        "html.parser",
+    ).get_text("\n", strip=True)
+
+    schedules = {}
+
+    for date_text, title in DATE_PATTERN.findall(text):
+        title = title.strip()
+
+        if not title or any(
+                keyword in title
+                for keyword in EXCLUDED_KEYWORDS
+        ):
             continue
 
-        # 날짜 문자열 정규화 (공백 제거 및 점을 하이픈으로 변경)
-        norm_date = re.sub(r"\s*~\s*", " ~ ", date_str.strip()).replace(".", "-")
+        start, _, end = date_text.replace(".", "-").partition("~")
 
-        # 중복 방지 고유 키 (정규화된 날짜 + 타이틀)
-        unique_key = (norm_date, event)
-        if unique_key in seen:
+        start_date = date.fromisoformat(start.strip())
+        end_date = date.fromisoformat(
+            end.strip() or start.strip()
+        )
+
+        if end_date < start_date:
             continue
-        seen.add(unique_key)
 
-        # 시작일/종료일 분리 및 기간 판별
-        if " ~ " in norm_date:
-            start_date, end_date = norm_date.split(" ~ ")
-            is_period = True
-        else:
-            start_date = norm_date
-            end_date = norm_date
-            is_period = False
+        key = (
+            start_date,
+            end_date,
+            title,
+        )
 
-        # 고유 ID 생성 (날짜 + 키워드 해시 형태)
-        event_id = f"{start_date}-{end_date}-{hash(event) & 0xffff}"
+        schedules[key] = {
+            "title": title,
+            "start_date": start_date,
+            "end_date": end_date,
+            "is_period": start_date != end_date,
+        }
 
-        schedules.append({
-            "id": event_id,
-            "title": event,
-            "startDate": start_date,
-            "endDate": end_date,
-            "isPeriod": is_period
-        })
+    return list(schedules.values())
 
-    # 시작일 기준 정렬
-    schedules.sort(key = lambda x: (x["startDate"], x["endDate"]))
 
-    result = {
-        "year": year,
-        "month": month,
-        "totalCount": len(schedules),
-        "schedules": schedules
-    }
+def event_id(schedule):
+    raw = (
+        f'{schedule["start_date"]}|'
+        f'{schedule["end_date"]}|'
+        f'{schedule["title"]}'
+    )
 
-    # JSON 파일 저장
-    filename = f"schedule_{year}_{month:02d}.json"
-    with open(filename, "w", encoding = "utf-8") as f:
-        json.dump(result, f, ensure_ascii = False, indent = 4)
+    return hashlib.sha256(
+        raw.encode()
+    ).hexdigest()
 
-    print(f"[{year}년 {month}월] 총 {len(schedules)}개 항목 -> '{filename}' 저장")
-    return result
+
+def save(schedules, conn):
+    with conn.cursor() as cur:
+        cur.execute("TRUNCATE TABLE schedules")
+
+        if schedules:
+            cur.executemany(
+                """
+                INSERT INTO schedules (
+                    id,
+                    title,
+                    start_date,
+                    end_date,
+                    is_period
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                [
+                    (
+                        event_id(schedule),
+                        schedule["title"],
+                        schedule["start_date"],
+                        schedule["end_date"],
+                        schedule["is_period"],
+                    )
+                    for schedule in schedules
+                ],
+            )
+
+    conn.commit()
+
+
+def add_months(year, month, months):
+    index = year * 12 + month - 1 + months
+    return index // 12, index % 12 + 1
+
+
+def main(months=3):
+    today = date.today()
+    schedules = {}
+
+    with (
+        create_session() as session,
+        psycopg.connect(**DB_CONFIG) as conn,
+    ):
+        for offset in range(months):
+            year, month = add_months(
+                today.year,
+                today.month,
+                offset,
+            )
+
+            print(f"[CRAWL] {year}-{month:02d}")
+
+            month_schedules = crawl(
+                year,
+                month,
+                session,
+            )
+
+            print(
+                f"[FOUND] {len(month_schedules)} schedules"
+            )
+
+            for schedule in month_schedules:
+                key = (
+                    schedule["start_date"],
+                    schedule["end_date"],
+                    schedule["title"],
+                )
+                schedules[key] = schedule
+
+        schedules = sorted(
+            schedules.values(),
+            key=lambda schedule: (
+                schedule["start_date"],
+                schedule["end_date"],
+                schedule["title"],
+            ),
+        )
+
+        print(f"[TOTAL] {len(schedules)} schedules")
+
+        save(schedules, conn)
+
+    print("[DONE]")
+
 
 if __name__ == "__main__":
-    crawl_and_standardize(2026, 9)
+    main()
