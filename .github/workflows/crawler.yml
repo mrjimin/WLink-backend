@@ -2,9 +2,11 @@ name: School Schedule Crawler
 
 on:
   schedule:
-    - cron: "15 13 * * *"
-
+    - cron: "0 */9 * * *"
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 defaults:
   run:
@@ -13,6 +15,7 @@ defaults:
 jobs:
   crawl:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
