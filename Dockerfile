@@ -1,9 +1,15 @@
-FROM eclipse-temurin:25-jre
-
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 
-COPY build/libs/*.jar app.jar
+COPY . .
 
+RUN chmod +x ./gradlew
+RUN ./gradlew buildFatJar --no-daemon
+
+FROM eclipse-temurin:25-jre
 EXPOSE 8080
+RUN mkdir /app
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY --from=build /app/build/libs/*-all.jar /app/ktor-app.jar
+
+ENTRYPOINT ["java", "-jar", "/app/ktor-app.jar"]
