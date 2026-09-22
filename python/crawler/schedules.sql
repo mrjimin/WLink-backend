@@ -6,7 +6,7 @@ CREATE TABLE schedules (
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     is_period BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul'),
 
     CONSTRAINT chk_schedules_date
        CHECK (end_date >= start_date)

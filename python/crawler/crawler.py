@@ -233,7 +233,7 @@ def collect_schedules(months, session):
 
 
 def save_schedules(schedules, conn):
-    now_seoul = datetime.now(ZoneInfo("Asia/Seoul"))
+    now_seoul = datetime.now(ZoneInfo("Asia/Seoul")).replace(tzinfo=None)
 
     rows = [
         (
