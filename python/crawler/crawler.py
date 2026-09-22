@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import psycopg
 
 BASE_URL = "https://school.jbedu.kr/woosuk/M010501/list.do"
 
