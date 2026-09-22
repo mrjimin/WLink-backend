@@ -1,5 +1,7 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE schedules (
-    id VARCHAR(64) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -7,7 +9,7 @@ CREATE TABLE schedules (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_schedule_date
+    CONSTRAINT chk_schedules_date
        CHECK (end_date >= start_date)
 );
 

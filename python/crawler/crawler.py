@@ -1,4 +1,3 @@
-import hashlib
 import os
 import re
 from datetime import date
@@ -40,13 +39,24 @@ EXCLUDED_KEYWORDS = {
 load_dotenv()
 
 
+def get_required_env(name):
+    value = os.getenv(name)
+
+    if not value:
+        raise RuntimeError(
+            f"Environment variable '{name}' is not set."
+        )
+
+    return value
+
+
 def get_db_config():
     return {
-        "host": os.environ["DB_HOST"],
-        "port": os.environ.get("DB_PORT", "5432"),
-        "dbname": os.environ["DB_NAME"],
-        "user": os.environ["DB_USER"],
-        "password": os.environ["DB_PASSWORD"],
+        "host": get_required_env("DB_HOST"),
+        "port": os.getenv("DB_PORT", "5432"),
+        "dbname": get_required_env("DB_NAME"),
+        "user": get_required_env("DB_USER"),
+        "password": get_required_env("DB_PASSWORD"),
     }
 
 
@@ -55,17 +65,54 @@ def create_session():
 
     retry = Retry(
         total=3,
+        connect=3,
+        read=3,
         backoff_factor=1,
         status_forcelist=(500, 502, 503, 504),
         allowed_methods=("GET",),
     )
 
+    adapter = HTTPAdapter(
+        max_retries=retry
+    )
+
     session.mount(
         "https://",
-        HTTPAdapter(max_retries=retry),
+        adapter,
     )
 
     return session
+
+
+def parse_date_range(date_text):
+    start_text, _, end_text = (
+        date_text
+        .replace(".", "-")
+        .partition("~")
+    )
+
+    start_date = date.fromisoformat(
+        start_text.strip()
+    )
+
+    end_date = date.fromisoformat(
+        end_text.strip() or start_text.strip()
+    )
+
+    if end_date < start_date:
+        return None
+
+    return start_date, end_date
+
+
+def is_valid_title(title):
+    if not title:
+        return False
+
+    return not any(
+        keyword in title
+        for keyword in EXCLUDED_KEYWORDS
+    )
 
 
 def crawl_month(year, month, session):
@@ -78,45 +125,36 @@ def crawl_month(year, month, session):
         headers=REQUEST_HEADERS,
         timeout=REQUEST_TIMEOUT,
     )
+
     response.raise_for_status()
 
     text = BeautifulSoup(
         response.text,
         "html.parser",
-    ).get_text("\n", strip=True)
+    ).get_text(
+        "\n",
+        strip=True,
+    )
 
-    unique_schedules = {}
+    schedules_by_key = {}
 
-    for date_text, title in DATE_PATTERN.findall(text):
-        title = title.strip()
+    for date_text, raw_title in DATE_PATTERN.findall(text):
+        title = raw_title.strip()
 
-        if not title:
+        if not is_valid_title(title):
             continue
-
-        if any(
-                keyword in title
-                for keyword in EXCLUDED_KEYWORDS
-        ):
-            continue
-
-        start_text, _, end_text = (
-            date_text
-            .replace(".", "-")
-            .partition("~")
-        )
 
         try:
-            start_date = date.fromisoformat(
-                start_text.strip()
-            )
-            end_date = date.fromisoformat(
-                end_text.strip() or start_text.strip()
+            date_range = parse_date_range(
+                date_text
             )
         except ValueError:
             continue
 
-        if end_date < start_date:
+        if date_range is None:
             continue
+
+        start_date, end_date = date_range
 
         key = (
             start_date,
@@ -124,34 +162,81 @@ def crawl_month(year, month, session):
             title,
         )
 
-        unique_schedules[key] = {
+        schedules_by_key[key] = {
             "title": title,
             "start_date": start_date,
             "end_date": end_date,
             "is_period": start_date != end_date,
         }
 
-    return list(unique_schedules.values())
+    return list(schedules_by_key.values())
 
 
-def create_event_id(schedule):
-    raw = "|".join(
-        (
-            str(schedule["start_date"]),
-            str(schedule["end_date"]),
-            schedule["title"],
-        )
+def add_months(year, month, offset):
+    month_index = (
+            year * 12
+            + month
+            - 1
+            + offset
     )
 
-    return hashlib.sha256(
-        raw.encode("utf-8")
-    ).hexdigest()
+    return (
+        month_index // 12,
+        month_index % 12 + 1,
+    )
+
+
+def schedule_key(schedule):
+    return (
+        schedule["start_date"],
+        schedule["end_date"],
+        schedule["title"],
+    )
+
+
+def collect_schedules(months, session):
+    today = date.today()
+    schedules_by_key = {}
+
+    for offset in range(months):
+        year, month = add_months(
+            today.year,
+            today.month,
+            offset,
+        )
+
+        print(
+            f"[CRAWL] {year}-{month:02d}"
+        )
+
+        month_schedules = crawl_month(
+            year,
+            month,
+            session,
+        )
+
+        print(
+            f"[FOUND] {len(month_schedules)} schedules"
+        )
+
+        for schedule in month_schedules:
+            schedules_by_key[
+                schedule_key(schedule)
+            ] = schedule
+
+    return sorted(
+        schedules_by_key.values(),
+        key=lambda schedule: (
+            schedule["start_date"],
+            schedule["end_date"],
+            schedule["title"],
+        ),
+    )
 
 
 def save_schedules(schedules, conn):
     rows = [
         (
-            create_event_id(schedule),
             schedule["title"],
             schedule["start_date"],
             schedule["end_date"],
@@ -169,80 +254,37 @@ def save_schedules(schedules, conn):
             cursor.executemany(
                 """
                 INSERT INTO schedules (
-                    id,
                     title,
                     start_date,
                     end_date,
                     is_period
                 )
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s)
                 """,
                 rows,
             )
 
 
-def add_months(year, month, months):
-    month_index = year * 12 + month - 1 + months
-
-    return (
-        month_index // 12,
-        month_index % 12 + 1,
-    )
-
-
-def collect_schedules(months, session):
-    today = date.today()
-    unique_schedules = {}
-
-    for offset in range(months):
-        year, month = add_months(
-            today.year,
-            today.month,
-            offset,
-        )
-
-        print(f"[CRAWL] {year}-{month:02d}")
-
-        month_schedules = crawl_month(
-            year,
-            month,
-            session,
-        )
-
-        print(
-            f"[FOUND] {len(month_schedules)} schedules"
-        )
-
-        for schedule in month_schedules:
-            key = (
-                schedule["start_date"],
-                schedule["end_date"],
-                schedule["title"],
-            )
-
-            unique_schedules[key] = schedule
-
-    return sorted(
-        unique_schedules.values(),
-        key=lambda schedule: (
-            schedule["start_date"],
-            schedule["end_date"],
-            schedule["title"],
-        ),
-    )
-
-
 def main():
+    print("[START] School Schedule Crawler")
+
     with create_session() as session:
         schedules = collect_schedules(
             CRAWL_MONTHS,
             session,
         )
 
-    print(f"[TOTAL] {len(schedules)} schedules")
+    print(
+        f"[TOTAL] {len(schedules)} schedules"
+    )
 
-    with psycopg.connect(**get_db_config()) as conn:
-        save_schedules(schedules, conn)
+    with psycopg.connect(
+            **get_db_config()
+    ) as conn:
+        save_schedules(
+            schedules,
+            conn,
+        )
 
     print("[DONE]")
 
