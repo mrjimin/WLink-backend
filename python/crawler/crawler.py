@@ -13,14 +13,12 @@ from urllib3.util.retry import Retry
 
 BASE_URL = "https://school.jbedu.kr/woosuk/M010501/list.do"
 
-load_dotenv()
+CRAWL_MONTHS = 3
+REQUEST_TIMEOUT = 15
 
-DB_CONFIG = {
-    "host": os.environ["DB_HOST"],
-    "port": os.environ.get("DB_PORT"),
-    "dbname": os.environ["DB_NAME"],
-    "user": os.environ["DB_USER"],
-    "password": os.environ["DB_PASSWORD"],
+REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "ko-KR,ko;q=0.9",
 }
 
 DATE_PATTERN = re.compile(
@@ -37,6 +35,19 @@ EXCLUDED_KEYWORDS = {
     "본문내용",
     "퀵메뉴",
 }
+
+
+load_dotenv()
+
+
+def get_db_config():
+    return {
+        "host": os.environ["DB_HOST"],
+        "port": os.environ.get("DB_PORT", "5432"),
+        "dbname": os.environ["DB_NAME"],
+        "user": os.environ["DB_USER"],
+        "password": os.environ["DB_PASSWORD"],
+    }
 
 
 def create_session():
@@ -57,15 +68,15 @@ def create_session():
     return session
 
 
-def crawl(year, month, session):
+def crawl_month(year, month, session):
     response = session.get(
         BASE_URL,
-        params={"y": year, "m": month},
-        headers={
-            "User-Agent": "Mozilla/5.0",
-            "Accept-Language": "ko-KR,ko;q=0.9",
+        params={
+            "y": year,
+            "m": month,
         },
-        timeout=15,
+        headers=REQUEST_HEADERS,
+        timeout=REQUEST_TIMEOUT,
     )
     response.raise_for_status()
 
@@ -74,23 +85,35 @@ def crawl(year, month, session):
         "html.parser",
     ).get_text("\n", strip=True)
 
-    schedules = {}
+    unique_schedules = {}
 
     for date_text, title in DATE_PATTERN.findall(text):
         title = title.strip()
 
-        if not title or any(
+        if not title:
+            continue
+
+        if any(
                 keyword in title
                 for keyword in EXCLUDED_KEYWORDS
         ):
             continue
 
-        start, _, end = date_text.replace(".", "-").partition("~")
-
-        start_date = date.fromisoformat(start.strip())
-        end_date = date.fromisoformat(
-            end.strip() or start.strip()
+        start_text, _, end_text = (
+            date_text
+            .replace(".", "-")
+            .partition("~")
         )
+
+        try:
+            start_date = date.fromisoformat(
+                start_text.strip()
+            )
+            end_date = date.fromisoformat(
+                end_text.strip() or start_text.strip()
+            )
+        except ValueError:
+            continue
 
         if end_date < start_date:
             continue
@@ -101,34 +124,49 @@ def crawl(year, month, session):
             title,
         )
 
-        schedules[key] = {
+        unique_schedules[key] = {
             "title": title,
             "start_date": start_date,
             "end_date": end_date,
             "is_period": start_date != end_date,
         }
 
-    return list(schedules.values())
+    return list(unique_schedules.values())
 
 
-def event_id(schedule):
-    raw = (
-        f'{schedule["start_date"]}|'
-        f'{schedule["end_date"]}|'
-        f'{schedule["title"]}'
+def create_event_id(schedule):
+    raw = "|".join(
+        (
+            str(schedule["start_date"]),
+            str(schedule["end_date"]),
+            schedule["title"],
+        )
     )
 
     return hashlib.sha256(
-        raw.encode()
+        raw.encode("utf-8")
     ).hexdigest()
 
 
-def save(schedules, conn):
-    with conn.cursor() as cur:
-        cur.execute("TRUNCATE TABLE schedules")
+def save_schedules(schedules, conn):
+    rows = [
+        (
+            create_event_id(schedule),
+            schedule["title"],
+            schedule["start_date"],
+            schedule["end_date"],
+            schedule["is_period"],
+        )
+        for schedule in schedules
+    ]
 
-        if schedules:
-            cur.executemany(
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "TRUNCATE TABLE schedules"
+        )
+
+        if rows:
+            cursor.executemany(
                 """
                 INSERT INTO schedules (
                     id,
@@ -139,73 +177,72 @@ def save(schedules, conn):
                 )
                 VALUES (%s, %s, %s, %s, %s)
                 """,
-                [
-                    (
-                        event_id(schedule),
-                        schedule["title"],
-                        schedule["start_date"],
-                        schedule["end_date"],
-                        schedule["is_period"],
-                    )
-                    for schedule in schedules
-                ],
+                rows,
             )
-
-    conn.commit()
 
 
 def add_months(year, month, months):
-    index = year * 12 + month - 1 + months
-    return index // 12, index % 12 + 1
+    month_index = year * 12 + month - 1 + months
+
+    return (
+        month_index // 12,
+        month_index % 12 + 1,
+    )
 
 
-def main(months=3):
+def collect_schedules(months, session):
     today = date.today()
-    schedules = {}
+    unique_schedules = {}
 
-    with (
-        create_session() as session,
-        psycopg.connect(**DB_CONFIG) as conn,
-    ):
-        for offset in range(months):
-            year, month = add_months(
-                today.year,
-                today.month,
-                offset,
-            )
+    for offset in range(months):
+        year, month = add_months(
+            today.year,
+            today.month,
+            offset,
+        )
 
-            print(f"[CRAWL] {year}-{month:02d}")
+        print(f"[CRAWL] {year}-{month:02d}")
 
-            month_schedules = crawl(
-                year,
-                month,
-                session,
-            )
+        month_schedules = crawl_month(
+            year,
+            month,
+            session,
+        )
 
-            print(
-                f"[FOUND] {len(month_schedules)} schedules"
-            )
+        print(
+            f"[FOUND] {len(month_schedules)} schedules"
+        )
 
-            for schedule in month_schedules:
-                key = (
-                    schedule["start_date"],
-                    schedule["end_date"],
-                    schedule["title"],
-                )
-                schedules[key] = schedule
-
-        schedules = sorted(
-            schedules.values(),
-            key=lambda schedule: (
+        for schedule in month_schedules:
+            key = (
                 schedule["start_date"],
                 schedule["end_date"],
                 schedule["title"],
-            ),
+            )
+
+            unique_schedules[key] = schedule
+
+    return sorted(
+        unique_schedules.values(),
+        key=lambda schedule: (
+            schedule["start_date"],
+            schedule["end_date"],
+            schedule["title"],
+        ),
+    )
+
+
+def main():
+    with create_session() as session:
+        schedules = collect_schedules(
+            CRAWL_MONTHS,
+            session,
         )
 
-        print(f"[TOTAL] {len(schedules)} schedules")
+    print(f"[TOTAL] {len(schedules)} schedules")
 
-        save(schedules, conn)
+    with psycopg.connect(**get_db_config()) as conn:
+        save_schedules(schedules, conn)
 
     print("[DONE]")
 
