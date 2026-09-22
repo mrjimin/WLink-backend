@@ -1,9 +1,9 @@
 import os
-import psycopg
 import re
 import requests
 from bs4 import BeautifulSoup
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -32,7 +32,6 @@ EXCLUDED_KEYWORDS = {
     "본문내용",
     "퀵메뉴",
 }
-
 
 load_dotenv()
 
@@ -233,12 +232,15 @@ def collect_schedules(months, session):
 
 
 def save_schedules(schedules, conn):
+    now_seoul = datetime.now(ZoneInfo("Asia/Seoul"))
+
     rows = [
         (
             schedule["title"],
             schedule["start_date"],
             schedule["end_date"],
             schedule["is_period"],
+            now_seoul,
         )
         for schedule in schedules
     ]
@@ -255,12 +257,14 @@ def save_schedules(schedules, conn):
                     title,
                     start_date,
                     end_date,
-                    is_period
+                    is_period,
+                    created_at
                 )
-                VALUES (%s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
                 rows,
             )
+        conn.commit()
 
 
 def main():
