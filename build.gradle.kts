@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(ktorLibs.plugins.ktor)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 group = "xyz.mrjimin"
@@ -19,6 +20,7 @@ dependencies {
     implementation(ktorLibs.server.callLogging)
     implementation(ktorLibs.server.config.yaml)
     implementation(ktorLibs.server.contentNegotiation)
+    implementation(ktorLibs.serialization.kotlinx.json)
     implementation(ktorLibs.server.core)
     implementation(ktorLibs.server.cors)
     implementation(ktorLibs.server.netty)
@@ -26,6 +28,17 @@ dependencies {
     implementation(libs.koin.ktor)
     implementation(libs.koin.loggerSlf4j)
     implementation(libs.logback.classic)
+
+    implementation(ktorLibs.client.core)
+    implementation(ktorLibs.client.cio)
+    implementation(ktorLibs.client.contentNegotiation)
+
+    implementation(exposedLibs.core)
+    implementation(exposedLibs.jdbc)
+    implementation(exposedLibs.kotlin.datetime)
+//    implementation(exposedLibs.java.time)
+    implementation(libs.h2database.h2)
+    implementation(libs.postgresql)
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)

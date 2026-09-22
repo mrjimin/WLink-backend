@@ -3,9 +3,13 @@ ktor:
     port: 8080
   application:
     modules:
-      - xyz.mrjimin.HttpKt.configureHttp
-      - xyz.mrjimin.SerializationKt.configureSerialization
-      - xyz.mrjimin.SecurityKt.configureSecurity
-      - xyz.mrjimin.RequestValidationKt.configureRequestValidation
-      - xyz.mrjimin.KoinKt.configureKoin
-      - xyz.mrjimin.RoutingKt.configureRouting
+      - xyz.mrjimin.wlink.plugin.SerializationKt.configureSerialization
+      - xyz.mrjimin.wlink.di.KoinKt.configureKoin
+      - xyz.mrjimin.wlink.plugin.ExposedKt.configureExposed
+      - xyz.mrjimin.wlink.plugin.RoutingKt.configureRouting
+#      - xyz.mrjimin.wlink.plugin.HttpKt.configureHttp
+#      - xyz.mrjimin.wlink.SerializationKt.configureSerialization
+#      - xyz.mrjimin.wlink.plugin.SecurityKt.configureSecurity
+#      - xyz.mrjimin.wlink.plugin.RequestValidationKt.configureRequestValidation
+#      - xyz.mrjimin.wlink.KoinKt.configureKoin
+#      - xyz.mrjimin.wlink.RoutingKt.configureRouting

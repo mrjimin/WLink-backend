@@ -1,13 +1,13 @@
 import os
+import psycopg
 import re
 import requests
 from bs4 import BeautifulSoup
 from datetime import date, datetime
-from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import psycopg
+from zoneinfo import ZoneInfo
 
 BASE_URL = "https://school.jbedu.kr/woosuk/M010501/list.do"
 

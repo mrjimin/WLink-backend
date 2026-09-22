@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="wlink@localhost" uuid="cb1fd6cc-dd92-4a1a-8b11-f347ded0d176">
+    <data-source source="LOCAL" name="wlink@wlink-db.mrjimin.xyz" uuid="92b501e8-2708-4bed-9cad-8d4af76d4c45">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://localhost:5432/wlink</jdbc-url>
+      <jdbc-url>jdbc:postgresql://wlink-db.mrjimin.xyz:54022/wlink</jdbc-url>
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.host.port" />
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />

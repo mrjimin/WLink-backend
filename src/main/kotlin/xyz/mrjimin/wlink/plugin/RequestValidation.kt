@@ -1,8 +1,7 @@
-package xyz.mrjimin
+package xyz.mrjimin.wlink.plugin
 
 import io.ktor.server.application.*
-import io.ktor.server.plugins.requestvalidation.RequestValidation
-import io.ktor.server.plugins.requestvalidation.ValidationResult
+import io.ktor.server.plugins.requestvalidation.*
 
 fun Application.configureRequestValidation() {
     install(RequestValidation) {

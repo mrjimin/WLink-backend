@@ -12,9 +12,11 @@ plugins {
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
+        maven("https://jitpack.io")
     }
     versionCatalogs {
-        create("ktorLibs").from("io.ktor:ktor-version-catalog:3.5.2")
+        create("ktorLibs").from("io.ktor:ktor-version-catalog:3.6.0")
+        create("exposedLibs").from("org.jetbrains.exposed:exposed-version-catalog:1.5.0")
     }
 }
 
