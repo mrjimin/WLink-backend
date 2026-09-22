@@ -1,14 +1,12 @@
 import os
-import re
-from datetime import date
-
 import psycopg
+import re
 import requests
 from bs4 import BeautifulSoup
+from datetime import date
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
 
 BASE_URL = "https://school.jbedu.kr/woosuk/M010501/list.do"
 
