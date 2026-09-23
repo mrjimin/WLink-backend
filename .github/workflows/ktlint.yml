@@ -1,0 +1,29 @@
+name: Ktlint
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+
+jobs:
+  ktlint:
+    name: Check Code Quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run ktlint
+        uses: ScaCap/action-ktlint@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          android: true
+          fail_on_error: true
+          level: warning

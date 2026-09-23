@@ -5,6 +5,7 @@ logback = "1.5.37"
 #h2 = "2.4.240"
 postgresql = "42.7.13"
 #ksoup = "1.0.3"
+ktlint = "14.2.0"
 
 [libraries]
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
@@ -18,3 +19,4 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 #kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
