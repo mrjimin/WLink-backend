@@ -37,8 +37,9 @@ dependencies {
     implementation(exposedLibs.jdbc)
     implementation(exposedLibs.kotlin.datetime)
 //    implementation(exposedLibs.java.time)
-    implementation(libs.h2database.h2)
+//    implementation(libs.h2database.h2)
     implementation(libs.postgresql)
+//    implementation(libs.ksoup)
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)
