@@ -17,7 +17,6 @@ kotlin {
 }
 dependencies {
     implementation(ktorLibs.server.auth)
-    implementation(ktorLibs.server.auth.jwt)
     implementation(ktorLibs.server.callLogging)
     implementation(ktorLibs.server.config.yaml)
     implementation(ktorLibs.server.contentNegotiation)
@@ -26,6 +25,8 @@ dependencies {
     implementation(ktorLibs.server.cors)
     implementation(ktorLibs.server.netty)
     implementation(ktorLibs.server.requestValidation)
+    implementation(ktorLibs.server.sessions)
+
     implementation(libs.koin.ktor)
     implementation(libs.koin.loggerSlf4j)
     implementation(libs.logback.classic)

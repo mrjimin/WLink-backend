@@ -1,4 +1,4 @@
-package xyz.mrjimin.wlink.di
+package xyz.mrjimin.wlink.plugin
 
 import io.ktor.server.application.*
 import org.koin.ktor.plugin.Koin
