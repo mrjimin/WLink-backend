@@ -39,7 +39,7 @@ fun Application.configureSecurity() {
                 if (cause is OAuth2RedirectError) {
                     respondRedirect("/login-after-fallback")
                 } else {
-                    respond(HttpStatusCode.Forbidden, cause.message ?: "Unknown error")
+                    respond(HttpStatusCode.Forbidden, cause.message)
                 }
             }
             client = applicationHttpClient

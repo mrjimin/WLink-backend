@@ -74,6 +74,8 @@ jobs:
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
               -e DB_PORT="${{ secrets.DB_PORT }}" \
               -e DB_NAME="${{ secrets.DB_NAME }}" \
+              -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              -e GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
               "$IMAGE"
 
             echo "Deployment complete"
