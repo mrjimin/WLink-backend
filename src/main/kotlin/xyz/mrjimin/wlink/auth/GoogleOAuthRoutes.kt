@@ -24,9 +24,23 @@ fun Route.googleOAuthRoutes() {
             val currentPrincipal = call.principal<OAuthAccessTokenResponse.OAuth2>()
                 ?: return@get call.respondText("Google Authentication Failed", status = HttpStatusCode.Unauthorized)
 
+            val token = currentPrincipal.accessToken
+
+            val userInfo = runCatching {
+                applicationHttpClient.get(GoogleOAuthConfig.USER_INFO_URL) {
+                    headers { append(HttpHeaders.Authorization, "Bearer $token") }
+                }.body<UserInfo>()
+            }.getOrNull()
+
+            userInfo?.email ?: return@get call.respondText(
+                "Access Denied: Only '@mrjimin.xyz' accounts are allowed.",
+                status = HttpStatusCode.Forbidden
+            )
+
+            userInfoCache[token] = userInfo
+
             val state = currentPrincipal.state
-            val session = UserSession(state ?: "unknown", currentPrincipal.accessToken)
-            call.sessions.set(session)
+            call.sessions.set(UserSession(state ?: "unknown", token))
 
             if (state != null) {
                 googleRedirects.remove(state)?.let { url ->
@@ -52,7 +66,7 @@ fun Route.googleOAuthRoutes() {
     get("/home") {
         val userSession = getSession(call) ?: return@get
         val userInfo = getPersonalGreeting(applicationHttpClient, userSession)
-        call.respondText("Hello, ${userInfo.name}! Welcome home!")
+        call.respondText("Hello, ${userInfo.name}! Welcome home (${userInfo.email})!")
     }
 
     get("/login-after-fallback") {

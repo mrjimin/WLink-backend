@@ -27,7 +27,7 @@ fun Application.configureSecurity() {
                 requestMethod = HttpMethod.Post,
                 clientId = GoogleOAuthConfig.clientId,
                 clientSecret = GoogleOAuthConfig.clientSecret,
-                defaultScopes = listOf(GoogleOAuthConfig.PROFILE_SCOPE),
+                defaultScopes = GoogleOAuthConfig.PROFILE_SCOPE,
                 extraAuthParameters = listOf("access_type" to "offline"),
                 onStateCreated = { call, state ->
                     call.request.queryParameters["redirectUrl"]?.let {
