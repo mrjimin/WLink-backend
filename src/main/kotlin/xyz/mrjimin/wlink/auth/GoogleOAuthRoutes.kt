@@ -30,12 +30,16 @@ fun Route.googleOAuthRoutes() {
                 applicationHttpClient.get(GoogleOAuthConfig.USER_INFO_URL) {
                     headers { append(HttpHeaders.Authorization, "Bearer $token") }
                 }.body<UserInfo>()
+            }.onFailure { e ->
+                println("로그인 차단 또는 파싱 실패: ${e.message}")
             }.getOrNull()
 
-            userInfo?.email ?: return@get call.respondText(
-                "Access Denied: Only '@mrjimin.xyz' accounts are allowed.",
-                status = HttpStatusCode.Forbidden
-            )
+            if (userInfo == null) {
+                return@get call.respondText(
+                    "Access Denied: Only '@${Email.ALLOWED_DOMAIN}' accounts are allowed.",
+                    status = HttpStatusCode.Forbidden
+                )
+            }
 
             userInfoCache[token] = userInfo
 
@@ -66,7 +70,7 @@ fun Route.googleOAuthRoutes() {
     get("/home") {
         val userSession = getSession(call) ?: return@get
         val userInfo = getPersonalGreeting(applicationHttpClient, userSession)
-        call.respondText("Hello, ${userInfo.name}! Welcome home (${userInfo.email})!")
+        call.respondText("Hello, ${userInfo.name}! Welcome home (${userInfo.email.value})!")
     }
 
     get("/login-after-fallback") {

@@ -8,10 +8,12 @@ import java.util.regex.Pattern
 value class Email(val value: String) {
 
     init {
-        if (!Pattern.matches("^[_a-z0-9-]+(.[_a-z0-9-]+)*@(?:\\w+\\.)+\\w+$", value)) {
-            throw IllegalAccessError()
+        if (!Pattern.matches("^[_a-zA-Z0-9-]+(.[_a-zA-Z0-9-]+)*@(?:\\w+\\.)+\\w+$", value)) {
+            throw IllegalArgumentException("Invalid email format: $value")
         }
-        if (domain != "mrjimin.xyz") throw IllegalAccessError()
+        if (domain != ALLOWED_DOMAIN) {
+            throw IllegalArgumentException("Access Denied: Only '@${ALLOWED_DOMAIN}' domains are allowed. (Got: $domain)")
+        }
     }
 
     val localPart: String
@@ -19,6 +21,10 @@ value class Email(val value: String) {
 
     val domain: String
         get() = value.substringAfter('@')
+
+    companion object {
+            const val ALLOWED_DOMAIN = "gmail.com"
+    }
 }
 
 fun String.toEmail(): Email = Email(this)
