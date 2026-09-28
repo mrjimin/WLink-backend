@@ -1,4 +1,4 @@
-package xyz.mrjimin.wlink.schedule
+package xyz.mrjimin.wlink.api.schedule
 
 import org.koin.dsl.module
 

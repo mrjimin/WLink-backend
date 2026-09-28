@@ -1,4 +1,4 @@
-package xyz.mrjimin.wlink.schedule
+package xyz.mrjimin.wlink.api.schedule
 
 import io.ktor.http.*
 import io.ktor.server.response.*

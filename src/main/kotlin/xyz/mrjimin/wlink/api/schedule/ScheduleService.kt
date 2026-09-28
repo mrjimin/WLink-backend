@@ -1,4 +1,4 @@
-package xyz.mrjimin.wlink.schedule
+package xyz.mrjimin.wlink.api.schedule
 
 import kotlinx.datetime.LocalDate
 import kotlin.uuid.Uuid

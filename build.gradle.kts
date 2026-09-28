@@ -15,6 +15,7 @@ application {
 kotlin {
     jvmToolchain(21)
 }
+
 dependencies {
     implementation(ktorLibs.server.auth)
     implementation(ktorLibs.server.callLogging)
@@ -43,6 +44,9 @@ dependencies {
     implementation(libs.postgresql)
 //    implementation(libs.ksoup)
 
+    implementation(libs.keis.ktor)
+
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)
+    testImplementation(libs.test.kotest)
 }

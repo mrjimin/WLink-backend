@@ -6,6 +6,8 @@ logback = "1.5.37"
 postgresql = "42.7.13"
 #ksoup = "1.0.3"
 ktlint = "14.2.0"
+keis = "3.2.0"
+kotest = "6.2.5"
 
 [libraries]
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
@@ -14,6 +16,9 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 #ksoup = { module = "com.github.mrjimin:Ksoup", version.ref = "ksoup" }
 #h2database-h2 = { module = "com.h2database:h2", version.ref = "h2" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+keis-ktor = { module = "com.github.mrjimin.Keis:ktor", version.ref = "keis" }
+
+test-kotest = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
