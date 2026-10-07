@@ -27,6 +27,7 @@ dependencies {
     implementation(ktorLibs.server.netty)
     implementation(ktorLibs.server.requestValidation)
     implementation(ktorLibs.server.sessions)
+    implementation(ktorLibs.server.forwardedHeader)
 
     implementation(libs.koin.ktor)
     implementation(libs.koin.loggerSlf4j)
